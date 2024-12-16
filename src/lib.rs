@@ -115,14 +115,13 @@ fn generate_output(
     };
 
     let output = quote! {
-        trait Includes<T> {}
-        trait Excludes<T> {}
+        pub trait Includes<T> {}
+        pub trait Excludes<T> {}
         pub struct Nil;
         pub struct Cons<H, T>(PhantomData<(H, T)>);
-
         impl Includes<Nil> for Nil {}
         impl<H, T> Includes<Nil> for Cons<H, T> {}
-
+        impl<T> Excludes<T> for Nil {}
         #generated
     };
 
@@ -205,12 +204,13 @@ mod tests {
         };
         let generated = generate_output(input, options);
         let expected = quote! {
-            trait Includes<T> {}
-            trait Excludes<T> {}
+            pub trait Includes<T> {}
+            pub trait Excludes<T> {}
             pub struct Nil;
             pub struct Cons<H, T>(PhantomData<(H, T)>);
             impl Includes<Nil> for Nil {}
             impl<H, T> Includes<Nil> for Cons<H, T> {}
+            impl<T> Excludes<T> for Nil {}
             pub struct Foo;
             pub struct Bar;
             impl Includes<Foo> for Cons<Foo, Nil> {}
