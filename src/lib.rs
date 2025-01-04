@@ -1,3 +1,72 @@
+//! Flexible and easy abstraction over the multistate typestate pattern
+//!
+//! Provides an easy and flexible way to apply an extended version of the typestate pattern to
+//! structs.
+//!
+//! # Example
+//! ```
+//! use std::marker::PhantomData;
+//! use typelist::typelist;
+//!
+//! // Create possible states
+//! struct FooState;
+//! struct BarState;
+//!
+//! // Allow typelist to work its magic
+//! typelist!(2, FooState, BarState);
+//!
+//! // Struct using the typestate
+//! struct Node<S = Nil> {
+//!   _state: PhantomData<S>,
+//! }
+//!
+//! impl<S> Node<S> {
+//!   pub fn new() -> Self {
+//!     Node { _state: PhantomData }
+//!   }
+//!
+//!   // Function adding the FooState state
+//!   pub fn foo(&self) -> Node<Cons<FooState, S>> {
+//!     Node::new()
+//!   }
+//!
+//!   // Function adding the BarState state
+//!   pub fn bar(&self) -> Node<Cons<BarState, S>> {
+//!     Node::new()
+//!   }
+//! }
+//!
+//! // This implementation can only be used if FooState has been added
+//! impl<S> Node<S> where S: Includes<FooState> {
+//!   pub fn only_on_foo(&self) { }
+//! }
+//!
+//! // This implementation can only be used if BarState has been added
+//! impl<S> Node<S> where S: Includes<BarState> {
+//!   pub fn only_on_bar(&self) { }
+//! }
+//!
+//! // This implementation can only be used if both FooState and BarState has been added
+//! impl<S> Node<S> where S: Includes<BarState> + Includes<FooState> {
+//!   pub fn only_on_foo_and_bar(&self) { }
+//! }
+//!
+//! let node = Node::new();
+//!
+//! // Allowed
+//! node.foo().only_on_foo();
+//! node.bar().foo().only_on_foo();
+//! node.foo().bar().only_on_foo();
+//!
+//! node.foo().bar().only_on_foo_and_bar();
+//! node.bar().foo().only_on_foo_and_bar();
+//!
+//! // Not Allowed
+//! // node.bar().only_on_foo();
+//! // node.foo().only_on_foo_and_bar();
+//! // node.bar().only_on_foo_and_bar();
+//! ```
+
 use itertools::Itertools;
 use proc_macro::TokenStream;
 use quote::quote;
@@ -100,7 +169,7 @@ fn generate_impls(depth: i32, names: &[String]) -> proc_macro2::TokenStream {
  * */
 fn generate_output(
     ConvertedInput { depth, names }: ConvertedInput,
-    options: Options,
+    options: &Options,
 ) -> proc_macro2::TokenStream {
     let impls = generate_impls(depth, &names);
     let structs = generate_structs(&names);
@@ -135,7 +204,7 @@ pub fn typelist(input: TokenStream) -> TokenStream {
     let converted_input = parse_macro_input!(input as MacroInput).into();
     generate_output(
         converted_input,
-        Options {
+        &Options {
             generate_structs: false,
         },
     )
@@ -149,7 +218,7 @@ pub fn typelist_with_structs(input: TokenStream) -> TokenStream {
     let converted_input = parse_macro_input!(input as MacroInput).into();
     generate_output(
         converted_input,
-        Options {
+        &Options {
             generate_structs: true,
         },
     )
@@ -202,7 +271,7 @@ mod tests {
         let options = Options {
             generate_structs: true,
         };
-        let generated = generate_output(input, options);
+        let generated = generate_output(input, &options);
         let expected = quote! {
             pub trait Includes<T> {}
             pub trait Excludes<T> {}
